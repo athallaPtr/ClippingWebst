@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoClipper — YouTube ke klip TikTok</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14161B;
+    --panel: #1C1F26;
+    --panel-line: #2A2E38;
+    --ink: #E7E7E2;
+    --ink-dim: #9497A3;
+    --amber: #F0A93A;
+    --amber-dim: #6b551f;
+    --red: #E0654F;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --sans: 'Space Grotesk', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--sans); line-height:1.5;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:56px 20px 100px;}
+
+  .timecode{
+    font-family:var(--mono); color:var(--amber); font-size:13px;
+    letter-spacing:0.04em; display:block; margin-bottom:14px;
+  }
+  h1{
+    font-size:clamp(28px,5vw,42px); margin:0 0 8px; font-weight:700; letter-spacing:-0.01em;
+  }
+  .sub{color:var(--ink-dim); font-size:15px; margin:0 0 44px;}
+
+  .step{
+    background:var(--panel); border:1px solid var(--panel-line); border-radius:14px;
+    padding:24px; margin-bottom:20px;
+  }
+  .step-head{display:flex; align-items:baseline; gap:10px; margin-bottom:16px;}
+  .step-num{font-family:var(--mono); color:var(--amber); font-size:13px;}
+  .step-title{font-weight:600; font-size:16px;}
+
+  label{display:block; font-size:13px; color:var(--ink-dim); margin-bottom:6px;}
+  input[type=text], input[type=password], select{
+    width:100%; background:#11131700; background:#0F1116; border:1px solid var(--panel-line);
+    color:var(--ink); padding:11px 12px; border-radius:8px; font-family:var(--mono);
+    font-size:13.5px; margin-bottom:14px;
+  }
+  input:focus, select:focus{outline:1px solid var(--amber); border-color:var(--amber);}
+
+  .row{display:flex; gap:10px; flex-wrap:wrap;}
+
+  button{
+    font-family:var(--sans); font-weight:600; font-size:14px; border:none;
+    border-radius:8px; padding:11px 20px; cursor:pointer; transition:opacity .15s;
+  }
+  button:disabled{opacity:0.4; cursor:not-allowed;}
+  .btn-primary{background:var(--amber); color:#1a1300;}
+  .btn-primary:hover:not(:disabled){opacity:0.9;}
+  .btn-ghost{background:transparent; color:var(--ink); border:1px solid var(--panel-line);}
+  .btn-ghost:hover:not(:disabled){border-color:var(--amber); color:var(--amber);}
+
+  .status{font-family:var(--mono); font-size:12.5px; color:var(--ink-dim); margin-top:10px; min-height:16px;}
+  .status.err{color:var(--red);}
+
+  .clip{
+    display:flex; align-items:flex-start; gap:12px; padding:12px 0;
+    border-bottom:1px solid var(--panel-line);
+  }
+  .clip:last-child{border-bottom:none;}
+  .clip input[type=checkbox]{margin-top:4px; accent-color:var(--amber);}
+  .clip-body{flex:1;}
+  .clip-time{font-family:var(--mono); font-size:12px; color:var(--amber);}
+  .clip-label{font-size:14px; margin-top:2px;}
+
+  .hint{font-size:12.5px; color:var(--ink-dim); margin-top:8px;}
+  .hint a{color:var(--amber);}
+
+  ol.usage{padding-left:20px; color:var(--ink-dim); font-size:14px;}
+  ol.usage li{margin-bottom:6px;}
+
+  .notes{
+    margin:0;
+    color:var(--ink-dim);
+    font-size:14px;
+    line-height:1.6;
+  }
+
+  .hidden{display:none;}
+
+  .crop-toggle{background:transparent; color:var(--amber); border:1px dashed var(--amber-dim); font-size:12.5px; padding:6px 12px; margin-top:8px;}
+  .crop-editor{margin-top:14px; padding-top:14px; border-top:1px dashed var(--panel-line);}
+  .orientation-row{display:flex; gap:8px; margin-bottom:10px;}
+  .btn-orientation{font-size:12.5px; padding:8px 14px;}
+  .btn-orientation.active{background:var(--amber); color:#1a1300; border-color:var(--amber);}
+  .crop-frame{position:relative; width:100%; aspect-ratio:16/9; background:#000; overflow:hidden; border-radius:8px; touch-action:none;}
+  .crop-frame iframe{position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;}
+  .crop-box{position:absolute; top:0; height:100%; border:2px solid var(--amber); background:rgba(240,169,58,0.15); cursor:grab; box-sizing:border-box;}
+  .crop-box:active{cursor:grabbing;}
+  .crop-box.horizontal-hidden{display:none;}
+  .crop-reset{margin-top:10px; font-size:12.5px; padding:8px 14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="timecode">tiktok: AutoClipper</span>
+  <h1>AutoClipper</h1>
+  <p class="sub">
+      AutoClipper membantu mempercepat proses clipping video YouTube menjadi konten pendek.
+      Seluruh proses menggunakan Google Gemini API (Free Tier) dan Google Colab milikmu sendiri,
+      sehingga saat ini dapat digunakan tanpa biaya. Ikuti langkah-langkah di bawah untuk mulai
+      membuat klip.
+    </p>
+
+  <div class="step">
+    <div class="step-head">
+      <span class="step-title">Masukkan video &amp; API key</span>
+    </div>
+    <label for="apiKey">Gemini API key (punya kamu sendiri, gratis di Google AI Studio)</label>
+    <input type="password" id="apiKey" placeholder="AIza...">
+    <label for="ytLink">Link video YouTube yang mau di clip</label>
+    <input type="text" id="ytLink" placeholder="https://youtube.com/watch?v=...">
+    <div class="row">
+      <button class="btn-primary" id="analyzeBtn">Analisis video</button>
+    </div>
+    <div class="status" id="analyzeStatus"></div>
+  </div>
+
+  <div class="step hidden" id="clipsStep">
+    <div class="step-head"><span class="step-num">02</span><span class="step-title">Klip yang ditemukan</span></div>
+    <div id="clipsList"></div>
+    <div class="hint">Hapus centang kalau ada klip yang mau dilewati.</div>
+  </div>
+
+  <div class="step hidden" id="downloadStep">
+    <div class="step-head"><span class="step-num">03</span><span class="step-title">Buat notebook</span></div>
+    <div class="hint">Crop otomatis ngikutin wajah pembicara. Klip yang mau diatur manual bisa di-set lewat tombol "Atur crop manual" di daftar klip di atas.</div>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn-primary" id="downloadBtn">Unduh notebook Colab</button>
+    </div>
+    <div class="status" id="downloadStatus"></div>
+  </div>
+
+  <div class="step">
+    <div class="step-head">
+      <span class="step-title">Cara pakai</span>
+    </div>
+    <ol class="usage">
+      <li>Isi API key &amp; link video, klik <b>Analisis video</b>.</li>
+      <li>Cek daftar klip yang muncul, hapus centang yang tidak perlu.</li>
+      <li>Pilih mode lalu klik <b>Unduh notebook Colab</b> — file <code>.ipynb</code> otomatis terdownload.</li>
+      <li>Buka <a href="https://colab.research.google.com" target="_blank" rel="noopener">colab.research.google.com</a> → <b>File → Upload notebook</b> → pilih file yang barusan terdownload.</li>
+      <li>Klik <b>Runtime → Run all</b>, izinkan akses Google Drive saat diminta, lalu tunggu sampai selesai.</li>
+      <li>Hasil klip ada di folder <code>AutoClipper_Output</code> di Google Drive kamu.</li>
+    </ol>
+  </div>
+
+  <div class="step">
+    <div class="step-head">
+      <span class="step-title">Notes</span>
+    </div>
+
+    <p class="notes">
+      Ini hanya tools yang membantu dan mempermudah proses clipping.
+      Jika ingin hasil yang lebih sempurna, kamu masih bisa mengedit hasilnya sendiri.
+    </p>
+  </div>
+
+</div>
+
+<script>
+const NOTEBOOK_TEMPLATE = "{\n \"nbformat\": 4,\n \"nbformat_minor\": 0,\n \"metadata\": {\n  \"colab\": {\n   \"provenance\": [],\n   \"gpuType\": \"T4\"\n  },\n  \"kernelspec\": {\n   \"name\": \"python3\",\n   \"display_name\": \"Python 3\"\n  },\n  \"accelerator\": \"GPU\"\n },\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"# \ud83c\udfac Auto Clipper \u2014 dari YouTube ke klip TikTok siap post\\n\",\n    \"\\n\",\n    \"Notebook ini sudah otomatis diisi dengan link video dan timestamp klip dari website.\\n\",\n    \"**Tinggal jalankan semua cell dari atas ke bawah (Runtime > Run all).**\\n\",\n    \"\\n\",\n    \"Semua proses (download, tracking, render, subtitle) jalan di akun Google & GPU gratis kamu sendiri \u2014 bukan di server siapa pun.\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 1. Install dependencies\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"!pip install -q yt-dlp faster-whisper opencv-python-headless srt\\n\",\n    \"!apt-get -qq install -y ffmpeg fonts-dejavu-core > /dev/null\\n\",\n    \"print(\\\"Dependencies siap.\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 2. Ambil modul terbaru dari GitHub (biar selalu update tanpa kirim ulang file)\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"REPO_BASE = \\\"https://raw.githubusercontent.com/athallaPtr/ClippingTools/main\\\"\\n\",\n    \"\\n\",\n    \"import time\\n\",\n    \"cache_bust = int(time.time())\\n\",\n    \"for fname in [\\\"downloader.py\\\", \\\"face_tracker.py\\\", \\\"transcriber.py\\\", \\\"renderer.py\\\"]:\\n\",\n    \"    !curl -s \\\"{REPO_BASE}/{fname}?t={cache_bust}\\\" -o {fname}\\n\",\n    \"\\n\",\n    \"print(\\\"Modul terbaru sudah ditarik dari GitHub.\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 3. Konfigurasi (otomatis terisi dari website \u2014 jangan diedit manual kecuali paham)\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"# ==== DIISI OTOMATIS OLEH WEBSITE \u2014 JANGAN HAPUS PLACEHOLDER INI SAAT EDIT TEMPLATE ====\\n\",\n    \"VIDEO_LINK = \\\"{{VIDEO_LINK}}\\\"\\n\",\n    \"\\n\",\n    \"# List klip: tiap item = {\\\"start\\\": detik, \\\"end\\\": detik, \\\"label\\\": judul singkat}\\n\",\n    \"CLIPS = {{CLIPS_JSON}}\\n\",\n    \"\\n\",\n    \"# crop otomatis ikuti wajah pembicara; fallback ke tengah kalau wajah tidak\\n\",\n    \"# terdeteksi. Klip tertentu bisa di-override manual lewat crop_override.\\n\",\n    \"MODE = \\\"{{MODE}}\\\"\\n\",\n    \"\\n\",\n    \"OUTPUT_DIR = \\\"/content/drive/MyDrive/AutoClipper_Output\\\"\\n\",\n    \"# =======================================================================\\n\",\n    \"print(f\\\"Video: {VIDEO_LINK}\\\")\\n\",\n    \"print(f\\\"Jumlah klip: {len(CLIPS)}\\\")\\n\",\n    \"print(f\\\"Mode crop: {MODE}\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 4. Mount Google Drive (tempat hasil klip disimpan)\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"from google.colab import drive\\n\",\n    \"import os\\n\",\n    \"\\n\",\n    \"drive.mount('/content/drive')\\n\",\n    \"os.makedirs(OUTPUT_DIR, exist_ok=True)\\n\",\n    \"print(f\\\"Hasil akan disimpan di: {OUTPUT_DIR}\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 5. Download video sumber\\n\",\n    \"\\n\",\n    \"Notebook akan coba download otomatis dari link YouTube dulu.\\n\",\n    \"\\n\",\n    \"**Kalau otomatis gagal** (kadang terjadi kalau video sedang di-flag ketat oleh YouTube),\\n\",\n    \"kamu tidak perlu edit apapun di sini. Cukup:\\n\",\n    \"\\n\",\n    \"1. Download video itu sendiri pakai cara/tool apapun yang biasa kamu pakai\\n\",\n    \"2. Upload video itu ke folder **`AutoClipper_Input`** di Google Drive kamu\\n\",\n    \"   (paling gampang lewat app Google Drive di HP -- upload jalan di background,\\n\",\n    \"   bisa ditinggal)\\n\",\n    \"3. Jalankan ulang cell di bawah ini -- notebook otomatis mendeteksi video itu di\\n\",\n    \"   Drive dan langsung lanjut, tanpa perlu drag & drop ke Colab.\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"from downloader import get_source_video\\n\",\n    \"\\n\",\n    \"SOURCE_PATH = \\\"/content/source_video.mp4\\\"\\n\",\n    \"\\n\",\n    \"ok, method = get_source_video(VIDEO_LINK, SOURCE_PATH)\\n\",\n    \"\\n\",\n    \"if not ok:\\n\",\n    \"    print(\\\"\\\\nVideo belum berhasil disiapkan.\\\")\\n\",\n    \"    print(\\\"Download otomatis gagal, dan belum ada video di folder Drive 'AutoClipper_Input'.\\\")\\n\",\n    \"    print(\\\"Upload video ke folder itu di Google Drive kamu, lalu jalankan ulang cell ini.\\\")\\n\",\n    \"elif method == \\\"auto\\\":\\n\",\n    \"    print(f\\\"\\\\nDownload otomatis berhasil: {SOURCE_PATH}\\\")\\n\",\n    \"else:\\n\",\n    \"    print(f\\\"\\\\nVideo diambil dari upload manual di Drive: {SOURCE_PATH}\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 6. Load model transkripsi (Whisper)\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"from transcriber import load_whisper_model\\n\",\n    \"\\n\",\n    \"whisper_model = load_whisper_model(size=\\\"small\\\", device=\\\"cuda\\\", compute_type=\\\"float16\\\")\\n\",\n    \"print(\\\"Model transkripsi siap.\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 7. Proses semua klip (potongan presisi, crop, hook pembuka, subtitle animasi, fade out)\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"from renderer import process_clip\\n\",\n    \"\\n\",\n    \"results = []\\n\",\n    \"for i, clip in enumerate(CLIPS):\\n\",\n    \"    try:\\n\",\n    \"        results.append(process_clip(\\n\",\n    \"            index=i,\\n\",\n    \"            clip=clip,\\n\",\n    \"            source_path=SOURCE_PATH,\\n\",\n    \"            output_dir=OUTPUT_DIR,\\n\",\n    \"            mode=MODE,\\n\",\n    \"            whisper_model=whisper_model,\\n\",\n    \"            total_clips=len(CLIPS),\\n\",\n    \"        ))\\n\",\n    \"    except Exception as e:\\n\",\n    \"        print(f\\\"Klip {i} gagal: {e}\\\")\\n\",\n    \"\\n\",\n    \"print(f\\\"\\\\nSelesai. {len(results)} klip tersimpan di {OUTPUT_DIR}\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 8. Selesai \u2705\\n\",\n    \"\\n\",\n    \"Semua klip ada di folder **`AutoClipper_Output`** di Google Drive kamu.\\n\",\n    \"Buka Drive dari HP/laptop buat download atau langsung share ke TikTok/Reels/Shorts.\\n\"\n   ]\n  }\n ]\n}";
+
+let currentClips = [];
+
+const apiKeyInput = document.getElementById('apiKey');
+const ytLinkInput = document.getElementById('ytLink');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const analyzeStatus = document.getElementById('analyzeStatus');
+const clipsStep = document.getElementById('clipsStep');
+const clipsList = document.getElementById('clipsList');
+const downloadStep = document.getElementById('downloadStep');
+const downloadBtn = document.getElementById('downloadBtn');
+const downloadStatus = document.getElementById('downloadStatus');
+
+// Simpan API key di browser sendiri (tidak dikirim ke server manapun selain Google)
+apiKeyInput.value = localStorage.getItem('gemini_api_key') || '';
+apiKeyInput.addEventListener('change', () => {
+  localStorage.setItem('gemini_api_key', apiKeyInput.value.trim());
+});
+
+function toYouTubeUrl(raw) {
+  return raw.trim();
+}
+
+function extractYouTubeId(url) {
+  const m = url.match(/(?:v=|\/shorts\/|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function secToClock(s) {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+analyzeBtn.addEventListener('click', async () => {
+  const apiKey = apiKeyInput.value.trim();
+  const ytUrl = toYouTubeUrl(ytLinkInput.value);
+
+  if (!apiKey || !ytUrl) {
+    analyzeStatus.textContent = 'Isi API key dan link video dulu.';
+    analyzeStatus.classList.add('err');
+    return;
+  }
+
+  analyzeStatus.classList.remove('err');
+  analyzeStatus.textContent = 'Menganalisis video lewat Gemini... (bisa beberapa puluh detik untuk video panjang)';
+  analyzeBtn.disabled = true;
+  clipsStep.classList.add('hidden');
+  downloadStep.classList.add('hidden');
+
+  // ==========================================================================
+  // >>> EDIT PROMPT DI SINI <<<
+  // Ini teks instruksi yang dikirim ke Gemini buat nentuin klip mana yang
+  // diambil dari video. Ubah bagian ini kalau mau ganti kriteria pemilihan
+  // klip (durasi, gaya, topik fokus, dll) -- TIDAK perlu sentuh kode lain.
+  // ==========================================================================
+  const prompt = `Kamu menganalisis satu video YouTube untuk dijadikan klip pendek TikTok.
+Cari momen paling menarik (hook kuat, poin lucu/kontroversial/insightful, punchline).
+Tiap klip idealnya sekitar 0 - 150 detik, TAPI prioritaskan mengakhiri klip di titik natural (akhir kalimat/napas pembicara) -- boleh sedikit lebih panjang (maksimal tambahan 10 detik) demi menyelesaikan pemikiran/kalimat, jangan memotong di tengah kalimat. 3 detik pertama tiap klip harus sudah punya hook yang menarik perhatian.
+Balas HANYA dalam format JSON array, tanpa teks lain, dengan struktur persis seperti ini:
+[{"start": 125, "end": 178, "label": "judul singkat klip"}]
+start dan end dalam satuan detik (angka, bukan string). Buat sebanyak mungkin klip berkualitas yang kamu temukan, minimal 3 kalau video cukup panjang.`;
+  // >>> AKHIR BAGIAN PROMPT <<<
+
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { file_data: { file_uri: ytUrl } },
+            { text: prompt }
+          ]
+        }]
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error?.message || 'Gagal memanggil Gemini API.');
+    }
+
+    let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    text = text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+    const clips = JSON.parse(text);
+
+    currentClips = clips.map(c => ({...c, include: true, cropOverride: null}));
+    renderClips();
+
+    analyzeStatus.textContent = `Ditemukan ${clips.length} klip.`;
+    clipsStep.classList.remove('hidden');
+    downloadStep.classList.remove('hidden');
+
+  } catch (err) {
+    analyzeStatus.textContent = 'Gagal: ' + err.message;
+    analyzeStatus.classList.add('err');
+  } finally {
+    analyzeBtn.disabled = false;
+  }
+});
+
+let ytApiReady = false;
+let ytApiLoading = false;
+const ytPlayers = {};
+
+function ensureYouTubeApi(callback) {
+  if (ytApiReady) { callback(); return; }
+  window.onYouTubeIframeAPIReady = () => { ytApiReady = true; callback(); };
+  if (!ytApiLoading) {
+    ytApiLoading = true;
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  }
+}
+
+function renderClips() {
+  clipsList.innerHTML = '';
+  currentClips.forEach((clip, i) => {
+    const div = document.createElement('div');
+    div.className = 'clip';
+    div.innerHTML = `
+      <input type="checkbox" ${clip.include ? 'checked' : ''} data-idx="${i}">
+      <div class="clip-body">
+        <div class="clip-time">${secToClock(clip.start)} — ${secToClock(clip.end)}</div>
+        <div class="clip-label">${clip.label || ''}</div>
+        <button class="btn-ghost crop-toggle" data-idx="${i}">
+          ${clip.cropOverride ? 'Crop manual aktif — edit lagi' : 'Atur crop manual'}
+        </button>
+        <div class="crop-editor hidden" id="cropEditor-${i}">
+          <div class="orientation-row">
+            <button class="btn-ghost btn-orientation" data-idx="${i}" data-orientation="vertical">Vertikal (geser)</button>
+            <button class="btn-ghost btn-orientation" data-idx="${i}" data-orientation="horizontal">Landscape (muat 2 orang)</button>
+          </div>
+          <div class="crop-frame" id="cropFrame-${i}">
+            <div id="ytplayer-${i}"></div>
+            <div class="crop-box" id="cropBox-${i}"></div>
+          </div>
+          <div class="hint">Geser kotak kuning buat pilih area yang mau di-crop. Pilih Landscape kalau ada 2 orang yang nggak muat dalam crop vertikal sempit.</div>
+          <button class="btn-ghost crop-reset" data-idx="${i}">Reset ke otomatis</button>
+        </div>
+      </div>
+    `;
+    div.querySelector('input[type=checkbox]').addEventListener('change', (e) => {
+      currentClips[i].include = e.target.checked;
+    });
+    div.querySelector('.crop-toggle').addEventListener('click', () => toggleCropEditor(i));
+    div.querySelectorAll('.btn-orientation').forEach(btn => {
+      btn.addEventListener('click', () => setOrientation(i, btn.dataset.orientation));
+    });
+    div.querySelector('.crop-reset').addEventListener('click', () => resetCrop(i));
+    clipsList.appendChild(div);
+  });
+}
+
+function toggleCropEditor(i) {
+  const editor = document.getElementById(`cropEditor-${i}`);
+  const willShow = editor.classList.contains('hidden');
+  editor.classList.toggle('hidden');
+  if (!willShow) return;
+
+  if (!currentClips[i].cropOverride) {
+    currentClips[i].cropOverride = { orientation: 'vertical', x: 0.5 };
+  }
+
+  ensureYouTubeApi(() => initCropPlayer(i));
+}
+
+function initCropPlayer(i) {
+  const videoId = extractYouTubeId(toYouTubeUrl(ytLinkInput.value));
+  if (!videoId) return;
+
+  const clip = currentClips[i];
+  if (!ytPlayers[i]) {
+    ytPlayers[i] = new YT.Player(`ytplayer-${i}`, {
+      videoId: videoId,
+      playerVars: { start: Math.floor(clip.start), controls: 1, mute: 1 },
+      events: {
+        onReady: () => setupCropBox(i)
+      }
+    });
+  } else {
+    setupCropBox(i);
+  }
+}
+
+function setupCropBox(i) {
+  const frame = document.getElementById(`cropFrame-${i}`);
+  const box = document.getElementById(`cropBox-${i}`);
+  const clip = currentClips[i];
+
+  updateOrientationButtons(i);
+  layoutCropBox(i);
+  applyOrientationVisibility(i);
+
+  let dragging = false;
+  let startPointerX = 0;
+  let startBoxLeft = 0;
+
+  box.addEventListener('pointerdown', (e) => {
+    if (currentClips[i].cropOverride.orientation === 'horizontal') return;
+    dragging = true;
+    startPointerX = e.clientX;
+    startBoxLeft = box.offsetLeft;
+    box.setPointerCapture(e.pointerId);
+  });
+
+  box.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const frameWidth = frame.clientWidth;
+    const boxWidth = box.clientWidth;
+    let newLeft = startBoxLeft + (e.clientX - startPointerX);
+    newLeft = Math.max(0, Math.min(frameWidth - boxWidth, newLeft));
+    box.style.left = `${newLeft}px`;
+    const centerXRatio = (newLeft + boxWidth / 2) / frameWidth;
+    currentClips[i].cropOverride.x = centerXRatio;
+  });
+
+  box.addEventListener('pointerup', () => { dragging = false; });
+  box.addEventListener('pointercancel', () => { dragging = false; });
+}
+
+function layoutCropBox(i) {
+  const frame = document.getElementById(`cropFrame-${i}`);
+  const box = document.getElementById(`cropBox-${i}`);
+  const frameWidth = frame.clientWidth;
+  const frameHeight = frame.clientHeight;
+  const boxWidth = frameHeight * (9 / 16);
+  box.style.width = `${boxWidth}px`;
+
+  const xRatio = currentClips[i].cropOverride ? currentClips[i].cropOverride.x : 0.5;
+  const left = Math.max(0, Math.min(frameWidth - boxWidth, xRatio * frameWidth - boxWidth / 2));
+  box.style.left = `${left}px`;
+}
+
+function applyOrientationVisibility(i) {
+  const box = document.getElementById(`cropBox-${i}`);
+  const isHorizontal = currentClips[i].cropOverride.orientation === 'horizontal';
+  box.classList.toggle('horizontal-hidden', isHorizontal);
+}
+
+function updateOrientationButtons(i) {
+  const editor = document.getElementById(`cropEditor-${i}`);
+  const orientation = currentClips[i].cropOverride.orientation;
+  editor.querySelectorAll('.btn-orientation').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.orientation === orientation);
+  });
+}
+
+function setOrientation(i, orientation) {
+  if (!currentClips[i].cropOverride) {
+    currentClips[i].cropOverride = { orientation: 'vertical', x: 0.5 };
+  }
+  currentClips[i].cropOverride.orientation = orientation;
+  updateOrientationButtons(i);
+  applyOrientationVisibility(i);
+}
+
+function resetCrop(i) {
+  currentClips[i].cropOverride = null;
+  document.getElementById(`cropEditor-${i}`).classList.add('hidden');
+  renderClips();
+}
+
+downloadBtn.addEventListener('click', () => {
+  const ytUrl = toYouTubeUrl(ytLinkInput.value);
+  const mode = 'dynamic';
+  const selected = currentClips.filter(c => c.include).map(c => ({
+    start: c.start, end: c.end, label: c.label || '', crop_override: c.cropOverride || null
+  }));
+
+  if (selected.length === 0) {
+    downloadStatus.textContent = 'Pilih minimal 1 klip dulu.';
+    downloadStatus.classList.add('err');
+    return;
+  }
+
+  // Parse the template as a real notebook object first, edit the cell source
+  // arrays, then re-serialize with JSON.stringify -- this lets JSON.stringify
+  // handle all quote/newline escaping correctly instead of pasting raw text
+  // into the middle of an already-serialized JSON file (which corrupts it).
+  const notebookObj = JSON.parse(NOTEBOOK_TEMPLATE);
+  const clipsLiteral = JSON.stringify(selected);
+
+  for (const cell of notebookObj.cells) {
+    if (cell.cell_type !== 'code') continue;
+    cell.source = cell.source.map(line =>
+      line
+        .replace('{{VIDEO_LINK}}', ytUrl)
+        .replace('{{CLIPS_JSON}}', clipsLiteral)
+        .replace('{{MODE}}', mode)
+    );
+  }
+
+  const filled = JSON.stringify(notebookObj, null, 1);
+
+  const blob = new Blob([filled], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'autoclipper_notebook.ipynb';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  downloadStatus.classList.remove('err');
+  downloadStatus.textContent = 'Notebook terdownload. Buka colab.research.google.com lalu upload file ini.';
+});
+</script>
+</body>
+</html>
