@@ -173,9 +173,178 @@
 </div>
 
 <script>
-const NOTEBOOK_TEMPLATE = "{\n \"nbformat\": 4,\n \"nbformat_minor\": 0,\n \"metadata\": {\n  \"colab\": {\n   \"provenance\": [],\n   \"gpuType\": \"T4\"\n  },\n  \"kernelspec\": {\n   \"name\": \"python3\",\n   \"display_name\": \"Python 3\"\n  },\n  \"accelerator\": \"GPU\"\n },\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"# \ud83c\udfac Auto Clipper \u2014 dari YouTube ke klip TikTok siap post\\n\",\n    \"\\n\",\n    \"Notebook ini sudah otomatis diisi dengan link video dan timestamp klip dari website.\\n\",\n    \"**Tinggal jalankan semua cell dari atas ke bawah (Runtime > Run all).**\\n\",\n    \"\\n\",\n    \"Semua proses (download, tracking, render, subtitle) jalan di akun Google & GPU gratis kamu sendiri \u2014 bukan di server siapa pun.\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 1. Install dependencies\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"!pip install -q yt-dlp faster-whisper opencv-python-headless srt\\n\",\n    \"!apt-get -qq install -y ffmpeg fonts-dejavu-core > /dev/null\\n\",\n    \"print(\\\"Dependencies siap.\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 2. Ambil modul terbaru dari GitHub (biar selalu update tanpa kirim ulang file)\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"REPO_BASE = \\\"https://raw.githubusercontent.com/athallaPtr/ClippingTools/main\\\"\\n\",\n    \"\\n\",\n    \"import time\\n\",\n    \"cache_bust = int(time.time())\\n\",\n    \"for fname in [\\\"downloader.py\\\", \\\"face_tracker.py\\\", \\\"transcriber.py\\\", \\\"renderer.py\\\"]:\\n\",\n    \"    !curl -s \\\"{REPO_BASE}/{fname}?t={cache_bust}\\\" -o {fname}\\n\",\n    \"\\n\",\n    \"print(\\\"Modul terbaru sudah ditarik dari GitHub.\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 3. Konfigurasi (otomatis terisi dari website \u2014 jangan diedit manual kecuali paham)\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"# ==== DIISI OTOMATIS OLEH WEBSITE \u2014 JANGAN HAPUS PLACEHOLDER INI SAAT EDIT TEMPLATE ====\\n\",\n    \"VIDEO_LINK = \\\"{{VIDEO_LINK}}\\\"\\n\",\n    \"\\n\",\n    \"# List klip: tiap item = {\\\"start\\\": detik, \\\"end\\\": detik, \\\"label\\\": judul singkat}\\n\",\n    \"CLIPS = {{CLIPS_JSON}}\\n\",\n    \"\\n\",\n    \"# crop otomatis ikuti wajah pembicara; fallback ke tengah kalau wajah tidak\\n\",\n    \"# terdeteksi. Klip tertentu bisa di-override manual lewat crop_override.\\n\",\n    \"MODE = \\\"{{MODE}}\\\"\\n\",\n    \"\\n\",\n    \"OUTPUT_DIR = \\\"/content/drive/MyDrive/AutoClipper_Output\\\"\\n\",\n    \"# =======================================================================\\n\",\n    \"print(f\\\"Video: {VIDEO_LINK}\\\")\\n\",\n    \"print(f\\\"Jumlah klip: {len(CLIPS)}\\\")\\n\",\n    \"print(f\\\"Mode crop: {MODE}\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 4. Mount Google Drive (tempat hasil klip disimpan)\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"from google.colab import drive\\n\",\n    \"import os\\n\",\n    \"\\n\",\n    \"drive.mount('/content/drive')\\n\",\n    \"os.makedirs(OUTPUT_DIR, exist_ok=True)\\n\",\n    \"print(f\\\"Hasil akan disimpan di: {OUTPUT_DIR}\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 5. Download video sumber\\n\",\n    \"\\n\",\n    \"Notebook akan coba download otomatis dari link YouTube dulu.\\n\",\n    \"\\n\",\n    \"**Kalau otomatis gagal** (kadang terjadi kalau video sedang di-flag ketat oleh YouTube),\\n\",\n    \"kamu tidak perlu edit apapun di sini. Cukup:\\n\",\n    \"\\n\",\n    \"1. Download video itu sendiri pakai cara/tool apapun yang biasa kamu pakai\\n\",\n    \"2. Upload video itu ke folder **`AutoClipper_Input`** di Google Drive kamu\\n\",\n    \"   (paling gampang lewat app Google Drive di HP -- upload jalan di background,\\n\",\n    \"   bisa ditinggal)\\n\",\n    \"3. Jalankan ulang cell di bawah ini -- notebook otomatis mendeteksi video itu di\\n\",\n    \"   Drive dan langsung lanjut, tanpa perlu drag & drop ke Colab.\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"from downloader import get_source_video\\n\",\n    \"\\n\",\n    \"SOURCE_PATH = \\\"/content/source_video.mp4\\\"\\n\",\n    \"\\n\",\n    \"ok, method = get_source_video(VIDEO_LINK, SOURCE_PATH)\\n\",\n    \"\\n\",\n    \"if not ok:\\n\",\n    \"    print(\\\"\\\\nVideo belum berhasil disiapkan.\\\")\\n\",\n    \"    print(\\\"Download otomatis gagal, dan belum ada video di folder Drive 'AutoClipper_Input'.\\\")\\n\",\n    \"    print(\\\"Upload video ke folder itu di Google Drive kamu, lalu jalankan ulang cell ini.\\\")\\n\",\n    \"elif method == \\\"auto\\\":\\n\",\n    \"    print(f\\\"\\\\nDownload otomatis berhasil: {SOURCE_PATH}\\\")\\n\",\n    \"else:\\n\",\n    \"    print(f\\\"\\\\nVideo diambil dari upload manual di Drive: {SOURCE_PATH}\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 6. Load model transkripsi (Whisper)\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"from transcriber import load_whisper_model\\n\",\n    \"\\n\",\n    \"whisper_model = load_whisper_model(size=\\\"small\\\", device=\\\"cuda\\\", compute_type=\\\"float16\\\")\\n\",\n    \"print(\\\"Model transkripsi siap.\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 7. Proses semua klip (potongan presisi, crop, hook pembuka, subtitle animasi, fade out)\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"from renderer import process_clip\\n\",\n    \"\\n\",\n    \"results = []\\n\",\n    \"for i, clip in enumerate(CLIPS):\\n\",\n    \"    try:\\n\",\n    \"        results.append(process_clip(\\n\",\n    \"            index=i,\\n\",\n    \"            clip=clip,\\n\",\n    \"            source_path=SOURCE_PATH,\\n\",\n    \"            output_dir=OUTPUT_DIR,\\n\",\n    \"            mode=MODE,\\n\",\n    \"            whisper_model=whisper_model,\\n\",\n    \"            total_clips=len(CLIPS),\\n\",\n    \"        ))\\n\",\n    \"    except Exception as e:\\n\",\n    \"        print(f\\\"Klip {i} gagal: {e}\\\")\\n\",\n    \"\\n\",\n    \"print(f\\\"\\\\nSelesai. {len(results)} klip tersimpan di {OUTPUT_DIR}\\\")\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"markdown\",\n   \"metadata\": {},\n   \"source\": [\n    \"## 8. Selesai \u2705\\n\",\n    \"\\n\",\n    \"Semua klip ada di folder **`AutoClipper_Output`** di Google Drive kamu.\\n\",\n    \"Buka Drive dari HP/laptop buat download atau langsung share ke TikTok/Reels/Shorts.\\n\"\n   ]\n  }\n ]\n}";
+
+// ======================================================
+// CONFIGURATION & NOTEBOOK TEMPLATE
+// ======================================================
+// ======================================================
+// NOTEBOOK TEMPLATE
+// Ditulis sebagai kumpulan cell markdown/kode biasa (gampang dibaca &
+// diedit langsung di sini), lalu dirakit jadi format .ipynb yang valid
+// pas tombol "Unduh notebook" diklik. Semua tetap jalan di browser,
+// tidak ada file/koneksi eksternal tambahan.
+// ======================================================
+
+// Baris "{{VIDEO_LINK}}", "{{CLIPS_JSON}}", "{{MODE}}" di bawah adalah
+// placeholder yang diisi otomatis nanti (lihat fillPlaceholders()).
+// JANGAN dihapus / diubah namanya kalau mau edit isi cell lain.
+
+function md(text) {
+  return { cell_type: "markdown", metadata: {}, source: toSourceLines(text) };
+}
+
+function code(text) {
+  return { cell_type: "code", execution_count: null, metadata: {}, outputs: [], source: toSourceLines(text) };
+}
+
+// Ubah teks biasa (dengan baris baru asli) jadi format array-per-baris
+// yang dipakai file .ipynb, tiap baris diakhiri "\n".
+function toSourceLines(text) {
+  return text.split('\n').map(line => line + '\n');
+}
+
+const NOTEBOOK_CELLS = [
+
+  md(`# 🎬 Auto Clipper — dari YouTube ke klip TikTok siap post
+
+Notebook ini sudah otomatis diisi dengan link video dan timestamp klip dari website.
+**Tinggal jalankan semua cell dari atas ke bawah (Runtime > Run all).**
+
+Semua proses (download, tracking, render, subtitle) jalan di akun Google & GPU gratis kamu sendiri — bukan di server siapa pun.`),
+
+  md(`## 1. Install dependencies`),
+
+  code(`!pip install -q yt-dlp faster-whisper opencv-python-headless srt
+!apt-get -qq install -y ffmpeg fonts-dejavu-core > /dev/null
+print("Dependencies siap.")`),
+
+  md(`## 2. Ambil modul terbaru dari GitHub (biar selalu update tanpa kirim ulang file)`),
+
+  code(`REPO_BASE = "https://raw.githubusercontent.com/athallaPtr/ClippingTools/main"
+
+import time
+cache_bust = int(time.time())
+for fname in ["downloader.py", "face_tracker.py", "transcriber.py", "renderer.py"]:
+    !curl -s "{REPO_BASE}/{fname}?t={cache_bust}" -o {fname}
+
+print("Modul terbaru sudah ditarik dari GitHub.")`),
+
+  md(`## 3. Konfigurasi (otomatis terisi dari website — jangan diedit manual kecuali paham)`),
+
+  code(`# ==== DIISI OTOMATIS OLEH WEBSITE — JANGAN HAPUS PLACEHOLDER INI SAAT EDIT TEMPLATE ====
+VIDEO_LINK = "{{VIDEO_LINK}}"
+
+# List klip: tiap item = {"start": detik, "end": detik, "label": judul singkat}
+CLIPS = {{CLIPS_JSON}}
+
+# crop otomatis ikuti wajah pembicara; fallback ke tengah kalau wajah tidak
+# terdeteksi. Klip tertentu bisa di-override manual lewat crop_override.
+MODE = "{{MODE}}"
+
+OUTPUT_DIR = "/content/drive/MyDrive/AutoClipper_Output"
+# =======================================================================
+print(f"Video: {VIDEO_LINK}")
+print(f"Jumlah klip: {len(CLIPS)}")
+print(f"Mode crop: {MODE}")`),
+
+  md(`## 4. Mount Google Drive (tempat hasil klip disimpan)`),
+
+  code(`from google.colab import drive
+import os
+
+drive.mount('/content/drive')
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+print(f"Hasil akan disimpan di: {OUTPUT_DIR}")`),
+
+  md(`## 5. Download video sumber
+
+Notebook akan coba download otomatis dari link YouTube dulu.
+
+**Kalau otomatis gagal** (kadang terjadi kalau video sedang di-flag ketat oleh YouTube),
+kamu tidak perlu edit apapun di sini. Cukup:
+
+1. Download video itu sendiri pakai cara/tool apapun yang biasa kamu pakai
+2. Upload video itu ke folder **\`AutoClipper_Input\`** di Google Drive kamu
+   (paling gampang lewat app Google Drive di HP -- upload jalan di background,
+   bisa ditinggal)
+3. Jalankan ulang cell di bawah ini -- notebook otomatis mendeteksi video itu di
+   Drive dan langsung lanjut, tanpa perlu drag & drop ke Colab.`),
+
+  code(`from downloader import get_source_video
+
+SOURCE_PATH = "/content/source_video.mp4"
+
+ok, method = get_source_video(VIDEO_LINK, SOURCE_PATH)
+
+if not ok:
+    print("\\nVideo belum berhasil disiapkan.")
+    print("Download otomatis gagal, dan belum ada video di folder Drive 'AutoClipper_Input'.")
+    print("Upload video ke folder itu di Google Drive kamu, lalu jalankan ulang cell ini.")
+elif method == "auto":
+    print(f"\\nDownload otomatis berhasil: {SOURCE_PATH}")
+else:
+    print(f"\\nVideo diambil dari upload manual di Drive: {SOURCE_PATH}")`),
+
+  md(`## 6. Load model transkripsi (Whisper)`),
+
+  code(`from transcriber import load_whisper_model
+
+whisper_model = load_whisper_model(size="small", device="cuda", compute_type="float16")
+print("Model transkripsi siap.")`),
+
+  md(`## 7. Proses semua klip (potongan presisi, crop, hook pembuka, subtitle animasi, fade out)`),
+
+  code(`from renderer import process_clip
+
+results = []
+for i, clip in enumerate(CLIPS):
+    try:
+        results.append(process_clip(
+            index=i,
+            clip=clip,
+            source_path=SOURCE_PATH,
+            output_dir=OUTPUT_DIR,
+            mode=MODE,
+            whisper_model=whisper_model,
+            total_clips=len(CLIPS),
+        ))
+    except Exception as e:
+        print(f"Klip {i} gagal: {e}")
+
+print(f"\\nSelesai. {len(results)} klip tersimpan di {OUTPUT_DIR}")`),
+
+  md(`## 8. Selesai ✅
+
+Semua klip ada di folder **\`AutoClipper_Output\`** di Google Drive kamu.
+Buka Drive dari HP/laptop buat download atau langsung share ke TikTok/Reels/Shorts.`),
+
+];
+
+// Merakit cell-cell di atas jadi 1 objek notebook .ipynb yang valid.
+// Dipanggil ulang tiap kali user klik "Unduh notebook" (bukan sekali di awal),
+// biar tiap unduhan dapat salinan bersih (tidak ke-mutasi dari unduhan sebelumnya).
+function buildNotebookObject() {
+  return {
+    nbformat: 4,
+    nbformat_minor: 0,
+    metadata: {
+      colab: { provenance: [], gpuType: "T4" },
+      kernelspec: { name: "python3", display_name: "Python 3" },
+      accelerator: "GPU"
+    },
+    cells: NOTEBOOK_CELLS.map(cell => ({ ...cell, source: [...cell.source] }))
+  };
+}
+
+// ======================================================
+// APPLICATION STATE
+// ======================================================
 
 let currentClips = [];
+
+// ======================================================
+// DOM ELEMENT REFERENCES
+// ======================================================
 
 const apiKeyInput = document.getElementById('apiKey');
 const ytLinkInput = document.getElementById('ytLink');
@@ -193,20 +362,30 @@ apiKeyInput.addEventListener('change', () => {
   localStorage.setItem('gemini_api_key', apiKeyInput.value.trim());
 });
 
+// ======================================================
+// HELPER FUNCTIONS
+// ======================================================
+
 function toYouTubeUrl(raw) {
   return raw.trim();
 }
 
+// Mengambil ID video dari berbagai format URL YouTube.
 function extractYouTubeId(url) {
   const m = url.match(/(?:v=|\/shorts\/|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
 }
 
+// Mengubah detik menjadi format MM:SS.
 function secToClock(s) {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
 }
+
+// ======================================================
+// GEMINI ANALYSIS
+// ======================================================
 
 analyzeBtn.addEventListener('click', async () => {
   const apiKey = apiKeyInput.value.trim();
@@ -280,6 +459,7 @@ let ytApiReady = false;
 let ytApiLoading = false;
 const ytPlayers = {};
 
+// Memuat YouTube IFrame API hanya sekali.
 function ensureYouTubeApi(callback) {
   if (ytApiReady) { callback(); return; }
   window.onYouTubeIframeAPIReady = () => { ytApiReady = true; callback(); };
@@ -290,6 +470,10 @@ function ensureYouTubeApi(callback) {
     document.head.appendChild(tag);
   }
 }
+
+// ======================================================
+// CLIP RENDERING & CROP EDITOR
+// ======================================================
 
 function renderClips() {
   clipsList.innerHTML = '';
@@ -330,6 +514,7 @@ function renderClips() {
   });
 }
 
+// Membuka / menutup editor crop manual.
 function toggleCropEditor(i) {
   const editor = document.getElementById(`cropEditor-${i}`);
   const willShow = editor.classList.contains('hidden');
@@ -343,6 +528,7 @@ function toggleCropEditor(i) {
   ensureYouTubeApi(() => initCropPlayer(i));
 }
 
+// Membuat player preview YouTube untuk pengaturan crop.
 function initCropPlayer(i) {
   const videoId = extractYouTubeId(toYouTubeUrl(ytLinkInput.value));
   if (!videoId) return;
@@ -433,11 +619,16 @@ function setOrientation(i, orientation) {
   applyOrientationVisibility(i);
 }
 
+// Mengembalikan crop ke mode otomatis.
 function resetCrop(i) {
   currentClips[i].cropOverride = null;
   document.getElementById(`cropEditor-${i}`).classList.add('hidden');
   renderClips();
 }
+
+// ======================================================
+// NOTEBOOK GENERATION & DOWNLOAD
+// ======================================================
 
 downloadBtn.addEventListener('click', () => {
   const ytUrl = toYouTubeUrl(ytLinkInput.value);
@@ -456,7 +647,7 @@ downloadBtn.addEventListener('click', () => {
   // arrays, then re-serialize with JSON.stringify -- this lets JSON.stringify
   // handle all quote/newline escaping correctly instead of pasting raw text
   // into the middle of an already-serialized JSON file (which corrupts it).
-  const notebookObj = JSON.parse(NOTEBOOK_TEMPLATE);
+  const notebookObj = buildNotebookObject();
   const clipsLiteral = JSON.stringify(selected);
 
   for (const cell of notebookObj.cells) {
